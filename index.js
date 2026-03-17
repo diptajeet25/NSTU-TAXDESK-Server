@@ -1,0 +1,131 @@
+const express = require('express')
+const cors = require('cors')
+const dns = require("dns");
+dns.setServers(["1.1.1.1", "8.8.8.8"]);
+require('dotenv').config()
+const { MongoClient, ServerApiVersion } = require('mongodb');
+
+
+const app = express()
+let dbConnected = false
+
+app.use(cors())
+app.use(express.json())
+
+const port = process.env.PORT || 5000
+
+const dbUser = process.env.DB_USER
+const dbPassword = process.env.DB_PASSWORD
+const dbHost = process.env.DB_HOST || 'cluster0.hm8fata.mongodb.net'
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${dbHost}/?retryWrites=true&w=majority`;
+const client = new MongoClient(uri, {
+  serverApi: {
+    version: ServerApiVersion.v1,
+    strict: true,
+    deprecationErrors: true,
+  }
+});
+
+async function run() {
+  try {
+
+    await client.connect();
+    const database = client.db("NSTU_TaxDesk");
+    const usersCollection = database.collection("users");
+    const taxvatratesCollection = database.collection("taxvatrates");
+    const paymentsCollection = database.collection("payments");
+    app.post('/users', async (req, res) => {
+      const user = req.body;
+      const result = await usersCollection.insertOne(user);
+      res.json(result);
+    });
+
+    //Payment API
+    app.post('/payments', async (req, res) => {
+      const paymentInfo=req.body;
+      const result = await paymentsCollection.insertOne(paymentInfo);
+      res.json(result);
+
+    });
+    app.get('/pending-payments', async (req, res) => {
+      const {email,search,category,sort} = req.query;
+      const query={userEmail:email, status:'Pending'};
+      console.log(`email: ${email}, search: ${search}, category: ${category}, sort: ${sort}`);
+      if(search){
+        query.name={$regex: search, $options: 'i'}; 
+
+      }
+      if(category)
+      {
+        query.category = category;
+      }
+      if(sort){
+        if(sort==="newest"){
+          sortOption={createdAt:-1};
+        }
+        else if(sort==="oldest"){
+          sortOption={createdAt:1};
+        }
+        else if(sort==="high"){
+          sortOption={totalAmount:-1};
+      }
+      else if(sort==="low"){
+        sortOption={totalAmount:1};
+      }
+    }
+      const payments=await paymentsCollection.find(query).sort(sortOption || {}).toArray();
+      res.json(payments);
+        } );  
+
+        app.get('/pending-payments/stats',async(req,res)=>
+        {
+          const {email}=req.query;
+          const query={userEmail:email, status:'Pending'};
+          const totalPending =await paymentsCollection.countDocuments(query);
+          const lastpending=await paymentsCollection.find(query).sort({createdAt:-1}).limit(1).toArray();
+          const totalAmount =await paymentsCollection.find(query,{projection:{totalAmount:1}}).toArray();
+          const totalAmountSum=totalAmount.reduce((sum,payment)=>sum+payment.totalAmount,0);
+         console.log(`Total Pending: ${totalPending}, Last Pending: ${lastpending.length > 0 ? lastpending[0].createdAt : 'N/A'}, Total Amount Sum: ${totalAmountSum}`);
+         res.json({totalPending,lastpending,totalAmountSum});
+        })
+         //Tax-Vat Rates API
+    app.get('/taxvatrates', async (req, res) => {
+      const taxvatrates=await taxvatratesCollection.find().toArray();
+      res.json(taxvatrates);
+
+    });
+    app.post('/taxvatrates', async (req, res) => {
+      const taxvatrate = req.body;
+      const result = await taxvatratesCollection.insertOne(taxvatrate);
+      res.json(result);
+    });
+    await client.db("admin").command({ ping: 1 });
+    dbConnected = true;
+   
+
+  } catch (err) {
+    dbConnected = false;
+    console.error("❌ MongoDB connection failed:", err.message);
+  }
+}
+
+run();
+
+app.get('/', (req, res) => {
+  res.send('NSTU TaxDesk server is running');
+})
+
+
+
+app.get('/health', (req, res) => {
+  res.status(dbConnected ? 200 : 503).json({
+    ok: dbConnected,
+    mongo: dbConnected ? 'connected' : 'disconnected'
+  })
+})
+
+
+
+app.listen(port, () => {
+  console.log(`🚀 Server running on port ${port}`)
+})
