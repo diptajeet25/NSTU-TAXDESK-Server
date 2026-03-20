@@ -88,6 +88,28 @@ async function run() {
          console.log(`Total Pending: ${totalPending}, Last Pending: ${lastpending.length > 0 ? lastpending[0].createdAt : 'N/A'}, Total Amount Sum: ${totalAmountSum}`);
          res.json({totalPending,lastpending,totalAmountSum});
         })
+        app.get('/payment',async(req,res)=>
+        {
+          const {id}=req.query;
+          console.log(`Fetching payment with ID: ${id}`);
+          const query={id:id};
+          const payment=await paymentsCollection.findOne(query);
+          console.log(`Payment found: ${payment ? JSON.stringify(payment) : 'No payment found'}`);
+          res.json(payment);
+
+        })
+        app.patch('/payment',async(req,res)=>
+        {
+          const {id}=req.query;
+          const updatedInfo=req.body;
+          const query={id:id};
+          const updateDoc={
+            $set:updatedInfo
+          }
+          const result=await paymentsCollection.updateOne(query,updateDoc);
+          res.json(result);
+
+        })
          //Tax-Vat Rates API
     app.get('/taxvatrates', async (req, res) => {
       const taxvatrates=await taxvatratesCollection.find().toArray();
