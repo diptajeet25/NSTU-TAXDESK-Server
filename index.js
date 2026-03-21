@@ -76,6 +76,55 @@ async function run() {
       const payments=await paymentsCollection.find(query).sort(sortOption || {}).toArray();
       res.json(payments);
         } );  
+        app.get('/payment-history',async(req,res)=>
+        {
+          const {email,search,category,sort}=req.query;
+          const query={userEmail:email, status:'Paid'};
+          if(search)
+          {
+            query.name={$regex: search, $options: 'i'};
+          }
+          if(category)
+          {
+            query.category=category;
+          }
+          if(sort)
+          {
+            if(sort==="newest")
+            {
+              sortOption={paidAt:-1};
+            }
+            else if(sort==="oldest")
+            {
+              sortOption={paidAt:1};
+            }
+            else if(sort==="high")
+            {
+              sortOption={totalAmount:-1};
+
+            }
+            else if(sort==="low")
+            {
+              sortOption={totalAmount:1};
+            }
+          }
+          const payments=await paymentsCollection.find(query).sort(sortOption || {}).toArray();
+          res.json(payments);
+        })
+
+        app.get('/dashboard-stats',async(req,res)=>
+        {
+          const {email}=req.query;
+          const query={userEmail:email};
+         const allPayments=await paymentsCollection.find(query).toArray();
+         const paidPayments=allPayments.filter(payment=>payment.status==='Paid');
+         const pendingPayments=allPayments.filter(payment=>payment.status==='Pending');
+         const totalPaidAmount=paidPayments.reduce((sum,payment)=>sum+payment.totalAmount,0);
+         const totalPendingAmount=pendingPayments.reduce((sum,payment)=>sum+payment.totalAmount,0);
+         const lastPayment=paidPayments.sort((a,b)=>new Date(b.paidAt)-new Date(a.paidAt))[0];
+         res.json({totalPaidAmount,totalPendingAmount,totalPaidCount:paidPayments.length,totalPendingCount:pendingPayments.length,lastPayment});
+
+        })
 
         app.get('/pending-payments/stats',async(req,res)=>
         {
