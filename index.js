@@ -76,6 +76,14 @@ async function run() {
       const payments=await paymentsCollection.find(query).sort(sortOption || {}).toArray();
       res.json(payments);
         } );  
+
+        app.get(`/recent-transactions`,async(req,res)=>
+        {
+          const {email}=req.query;
+          const query={userEmail:email};
+          const payments=await paymentsCollection.find(query).sort({createdAt:-1}).limit(5).toArray();
+          res.json(payments);
+        })
         app.get('/payment-history',async(req,res)=>
         {
           const {email,search,category,sort}=req.query;
@@ -137,6 +145,17 @@ async function run() {
          console.log(`Total Pending: ${totalPending}, Last Pending: ${lastpending.length > 0 ? lastpending[0].createdAt : 'N/A'}, Total Amount Sum: ${totalAmountSum}`);
          res.json({totalPending,lastpending,totalAmountSum});
         })
+        app.get('/payment-stats',async(req,res)=>
+        {
+          const {email}=req.query;
+          const query={userEmail:email};
+          const totalPaid=await paymentsCollection.countDocuments({...query, status:'Paid'});
+          const totalPaidAmount=await paymentsCollection.find({...query, status:'Paid'},{projection:{totalAmount:1}}).toArray();
+          const totalPaidAmountSum=totalPaidAmount.reduce((sum,payment)=>sum+payment.totalAmount,0);
+          const lastPaid=await paymentsCollection.find({...query, status:'Paid'}).sort({paidAt:-1}).limit(1).toArray();
+          return res.json({totalPaid,totalPaidAmountSum,lastPaid});
+        })
+
         app.get('/payment',async(req,res)=>
         {
           const {id}=req.query;
