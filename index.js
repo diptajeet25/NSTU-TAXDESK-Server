@@ -50,8 +50,7 @@ async function run() {
     app.get('/pending-payments', async (req, res) => {
       const {email,search,category,sort} = req.query;
       const query={userEmail:email, status:'Pending'};
-      console.log(`email: ${email}, search: ${search}, category: ${category}, sort: ${sort}`);
-      if(search){
+     if(search){
         query.name={$regex: search, $options: 'i'}; 
 
       }
@@ -133,7 +132,21 @@ async function run() {
          res.json({totalPaidAmount,totalPendingAmount,totalPaidCount:paidPayments.length,totalPendingCount:pendingPayments.length,lastPayment});
 
         })
+        app.get('/adminstats',async(req,res)=>
+{
+  const totalUsers=await usersCollection.countDocuments({role: 'user'});
+  const totalTransactions=await paymentsCollection.countDocuments();
+  const payment=await paymentsCollection.find({status:'Paid'},{projection:{totalAmount:1}}).toArray();
+  const totalPaidAmount=payment.reduce((sum,payment)=>sum+payment.totalAmount,0);
+  const totalPaidCount=await paymentsCollection.countDocuments({status:'Paid'});
+  const pending=await paymentsCollection.find({status:'Pending'},{projection:{totalAmount:1}}).toArray();
+  const totalPendingAmount=pending.reduce((sum,payment)=>sum+payment.totalAmount,0);
+  const totalPendingCount=await paymentsCollection.countDocuments({status:'Pending'});
 
+  res.json({totalUsers,totalTransactions,totalPaidAmount,totalPaidCount,totalPendingAmount,totalPendingCount});
+
+
+})
         app.get('/pending-payments/stats',async(req,res)=>
         {
           const {email}=req.query;
@@ -142,7 +155,6 @@ async function run() {
           const lastpending=await paymentsCollection.find(query).sort({createdAt:-1}).limit(1).toArray();
           const totalAmount =await paymentsCollection.find(query,{projection:{totalAmount:1}}).toArray();
           const totalAmountSum=totalAmount.reduce((sum,payment)=>sum+payment.totalAmount,0);
-         console.log(`Total Pending: ${totalPending}, Last Pending: ${lastpending.length > 0 ? lastpending[0].createdAt : 'N/A'}, Total Amount Sum: ${totalAmountSum}`);
          res.json({totalPending,lastpending,totalAmountSum});
         })
         app.get('/payment-stats',async(req,res)=>
@@ -159,10 +171,9 @@ async function run() {
         app.get('/payment',async(req,res)=>
         {
           const {id}=req.query;
-          console.log(`Fetching payment with ID: ${id}`);
+         
           const query={id:id};
           const payment=await paymentsCollection.findOne(query);
-          console.log(`Payment found: ${payment ? JSON.stringify(payment) : 'No payment found'}`);
           res.json(payment);
 
         })
@@ -178,6 +189,18 @@ async function run() {
           res.json(result);
 
         })
+        app.delete('/payment',async(req,res)=>
+        {
+          
+         console.log(req.query);
+          const {id}=req.query;
+          const query={id:id};
+          const result=await paymentsCollection.deleteOne(query);
+          console.log(`Deleted payment with ID: ${id}, Result: ${result.deletedCount} document(s) deleted`);
+res.json(result);
+        })
+
+
          //Tax-Vat Rates API
     app.get('/taxvatrates', async (req, res) => {
       const taxvatrates=await taxvatratesCollection.find().toArray();
@@ -189,6 +212,18 @@ async function run() {
       const result = await taxvatratesCollection.insertOne(taxvatrate);
       res.json(result);
     });
+
+
+    //role related API
+    app.get('/userRole',async(req,res)=>
+    {
+      const {email}=req.query;
+      const query={email:email};
+      const user=await usersCollection.findOne(query,{projection:{role:1}});
+    
+      res.json({role:user?.role || 'User'});
+
+    })
     await client.db("admin").command({ ping: 1 });
     dbConnected = true;
    
