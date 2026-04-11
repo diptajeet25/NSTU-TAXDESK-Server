@@ -34,11 +34,51 @@ async function run() {
     const usersCollection = database.collection("users");
     const taxvatratesCollection = database.collection("taxvatrates");
     const paymentsCollection = database.collection("payments");
+    const entitiesCollection = database.collection("entities");
     app.post('/users', async (req, res) => {
       const user = req.body;
       const result = await usersCollection.insertOne(user);
       res.json(result);
     });
+    app.get('/profile', async (req, res) => {
+      const { email } = req.query;
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      res.json(user);
+    });
+    app.get('/loginValidity',async(req,res)=>
+    {
+      const {email}=req.query;
+      const query={email:email};
+      const user=await usersCollection.findOne(query,{projection:{active:1}});
+      if(!user)
+      {
+        return res.json({valid:false, message:'User not found'});
+      }
+      return res.json(user)
+
+    })
+    app.patch('/users/lastLogin',async(req,res)=>
+    {
+      const {email}=req.query;
+      const query={email:email};
+      const updateDoc={
+        $set:{lastLogin:new Date()}
+      }
+      const result=await usersCollection.updateOne(query,updateDoc);
+      res.json(result);
+
+    })
+
+
+    app.patch('/updateCalculationCount',async(req,res)=>
+    {
+      const {email}=req.query;
+      const query={email:email};
+      const result=await usersCollection.findOneAndUpdate(query,{$inc:{calculationCount:1}});
+      res.json(result);
+
+    })
 
     //Payment API
     app.post('/payments', async (req, res) => {
@@ -224,6 +264,31 @@ res.json(result);
       res.json({role:user?.role || 'User'});
 
     })
+
+    //Entities API
+app.get('/entities', async (req, res) => {
+  const {designation} = req.query;
+  if(designation==='teacher')
+  {
+    const entites=await entitiesCollection.find({type:'Department'},{projection:{name:1}}).sort({name:1}).toArray();
+    res.json(entites);
+  }
+  else 
+  {
+    const entites=await entitiesCollection.find({},{projection:{name:1}}).sort({name:1}).toArray();
+    res.json(entites);
+
+  }
+})
+
+    app.post('/entities', async (req, res) => {
+      const entity = req.body;
+      const result = await entitiesCollection.insertOne(entity);
+      res.json(result);
+    });
+
+
+    
     await client.db("admin").command({ ping: 1 });
     dbConnected = true;
    
