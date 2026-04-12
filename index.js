@@ -44,7 +44,12 @@ async function run() {
       const { email } = req.query;
       const query = { email: email };
       const user = await usersCollection.findOne(query);
-      res.json(user);
+     const paymentCount=await paymentsCollection.countDocuments({userEmail:email,status:'Paid'});
+     const pendingPaymentCount=await paymentsCollection.countDocuments({userEmail:email,status:'Pending'});
+     const totalAmount=await paymentsCollection.find({userEmail:email,status:'Paid'},{projection:{totalAmount:1}}).toArray();
+     const totalPaidAmount=totalAmount.reduce((sum,payment)=>sum+payment.totalAmount,0);
+      res.json({...user, paymentCount, pendingPaymentCount, totalPaidAmount});
+      
     });
     app.get('/loginValidity',async(req,res)=>
     {
