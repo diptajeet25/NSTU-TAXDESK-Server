@@ -75,6 +75,42 @@ async function run() {
 
     })
 
+    app.patch("/profile", async (req, res) => {
+  try {
+    const email = req.query.email?.trim()?.toLowerCase();
+    if (!email) {
+      return res.status(400).send({ message: "Email is required" });
+    }
+    const { name, designation, department, photourl } = req.body;
+    const updateDoc = {};
+
+    if (typeof name === "string") updateDoc.name = name;
+    if (typeof designation === "string") updateDoc.designation = designation;
+    if (typeof department === "string") updateDoc.department = department;
+    if (typeof photourl === "string") updateDoc.photourl = photourl;
+
+    if (Object.keys(updateDoc).length === 0) {
+      return res.status(400).send({ message: "No valid fields to update" });
+    }
+
+    updateDoc.updatedAt = new Date();
+
+    const result = await usersCollection.updateOne(
+      { email },
+      { $set: updateDoc }
+    );
+
+    return res.send({
+      acknowledged: result.acknowledged,
+      matchedCount: result.matchedCount,
+      modifiedCount: result.modifiedCount
+    });
+  } catch (error) {
+    console.error("PATCH /profile error:", error);
+    return res.status(500).send({ message: "Internal server error" });
+  }
+});
+
 
     app.patch('/updateCalculationCount',async(req,res)=>
     {
@@ -190,6 +226,14 @@ async function run() {
 
   res.json({totalUsers,totalTransactions,totalPaidAmount,totalPaidCount,totalPendingAmount,totalPendingCount});
 
+
+})
+app.get('/receipt',async(req,res)=>
+{
+  const {id}=req.query;
+  const query={id:id};
+  const payment=await paymentsCollection.findOne(query);
+  res.json(payment);
 
 })
         app.get('/pending-payments/stats',async(req,res)=>
