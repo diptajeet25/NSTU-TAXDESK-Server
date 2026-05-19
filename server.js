@@ -12,10 +12,6 @@ let dbConnected = false
 app.use(cors())
 app.use(express.json())
 
-const port = process.env.PORT || 5000
-
-const dbUser = process.env.DB_USER
-const dbPassword = process.env.DB_PASSWORD
 const dbHost = process.env.DB_HOST || 'cluster0.hm8fata.mongodb.net'
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${dbHost}/?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, {
@@ -348,9 +344,11 @@ res.json(result);
       const {email}=req.query;
       const query={email:email};
       const user=await usersCollection.findOne(query,{projection:{role:1 ,designation:1}});
+    
       res.json({role:user?.role || 'User', designation:user?.designation || 'User'});
 
     })
+
     //Entities API
 app.get('/entities', async (req, res) => {
   const {designation} = req.query;
@@ -363,30 +361,40 @@ app.get('/entities', async (req, res) => {
   {
     const entites=await entitiesCollection.find({},{projection:{name:1}}).sort({name:1}).toArray();
     res.json(entites);
+
   }
 })
+
     app.post('/entities', async (req, res) => {
       const entity = req.body;
       const result = await entitiesCollection.insertOne(entity);
       res.json(result);
     });
+
+    
     await client.db("admin").command({ ping: 1 });
     dbConnected = true;
+   
+
   } catch (err) {
     dbConnected = false;
     console.error("❌ MongoDB connection failed:", err.message);
   }
 }
+
 run();
+
 app.get('/', (req, res) => {
   res.send('NSTU TaxDesk server is running');
 })
+
+
 app.get('/health', (req, res) => {
   res.status(dbConnected ? 200 : 503).json({
     ok: dbConnected,
     mongo: dbConnected ? 'connected' : 'disconnected'
   })
 })
-app.listen(port, () => {
-  console.log(`🚀 Server running on port ${port}`)
-})
+
+
+module.exports = app
